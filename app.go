@@ -59,14 +59,18 @@ func establishNeo4j() {
 	
 	err = db.Ping()
 	for retryCount := 0; err != nil && retryCount < 5; {
-        log.Printf("connection could not be validated: %v ... retry in 2s", err)
+		log.Printf("connection could not be validated: %v ... retry in 2s", err)
 		time.Sleep(2*time.Second)
+		err = db.Ping()
 		retryCount++
     }
+	
 	if err != nil {
         log.Printf("error establishing connection: %v", err)
 		//log.Fatal
-    }
+    } else {
+		log.Printf("successfully validated connection")
+	}
 }
 
 func closingNeo4j() {
