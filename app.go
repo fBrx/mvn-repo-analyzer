@@ -4,7 +4,6 @@ import (
 	"os"
 	"log"
 	"time"
-//	"net"
 	"io/ioutil"
 	"path/filepath"
 	"encoding/xml"
@@ -66,8 +65,7 @@ func establishNeo4j() {
     }
 	
 	if err != nil {
-        log.Printf("error establishing connection: %v", err)
-		//log.Fatal
+        log.Fatal("error establishing connection: ", err)
     } else {
 		log.Printf("successfully validated connection")
 	}
