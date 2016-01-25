@@ -1,0 +1,13 @@
+neo4j:
+  image: neo4j
+  ports:
+    - "7474:7474"
+  environment:
+    - NEO4J_AUTH=none
+app:
+  build: .
+  links:
+    - neo4j
+  volumes:
+    - /c/Users/me/.m2/repo:/mvn
+  command: go-wrapper run /mvn/
