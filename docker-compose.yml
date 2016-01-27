@@ -11,5 +11,5 @@ app:
   links:
     - "neo4j:neo4j"
   volumes:
-    - ~/.m2/repo:/mvn
+    - /c/Users/y00481/_tmp/mvn/:/mvn
   command: go-wrapper run /mvn/

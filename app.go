@@ -57,10 +57,9 @@ func establishNeo4j() {
     }
 	
 	err = db.Ping()
-	for retryCount := 0; err != nil && retryCount < 5; {
+	for retryCount := 0; err != nil && retryCount < 5; err = db.Ping() {
 		log.Printf("connection could not be validated: %v ... retry in 2s", err)
 		time.Sleep(2*time.Second)
-		err = db.Ping()
 		retryCount++
     }
 	
@@ -129,7 +128,8 @@ func processArtifact(pom Pom) {
 	pom = initPom(pom)
 	log.Printf("pocessing artifact (%s:%s:%s:%s) with %v dependencies", pom.Group, pom.Artifact, pom.Version, pom.Packaging, len(pom.Dependencies))
 
-	result, err := db.Exec(`
+	//create artifact and parent node if needed and establish PARENT_OF relationship
+	_, err := db.Exec(`
 		merge (p:pom {groupId:'` + pom.Parent.Group + `', artifactId:'` + pom.Parent.Artifact + `', version:'` + pom.Parent.Version + `'})
 		merge (c:` + pom.Packaging + ` {groupId:'` + pom.Group + `', artifactId:'` + pom.Artifact + `', version:'` + pom.Version + `'})
 		merge (p)-[:PARENT_OF]->(c)
@@ -138,14 +138,24 @@ func processArtifact(pom Pom) {
     if err != nil {
         log.Printf("error executing statement: %v", err)
 		return
-    } else{
-		updateCount, err := result.RowsAffected()
+    } 
+	
+	//create dependency relationships
+	for i := 0; i<len(pom.Dependencies); i++ {
+		dep := initGav(pom.Dependencies[i], pom)
+		
+		log.Printf("processing dependency %s:%s:%s", dep.Group, dep.Artifact, dep.Version)
+		
+		_, err := db.Exec(`
+			match (a:` + pom.Packaging + ` {groupId:'` + pom.Group + `', artifactId:'` + pom.Artifact + `', version:'` + pom.Version + `'})
+			merge (d:` + dep.Type + ` {groupId:'` + dep.Group + `', artifactId:'` + dep.Artifact + `', version:'` + dep.Version + `'})
+			merge (a)-[:` + dep.Scope + `]->(d)
+		`)
+		
 		if err != nil {
 			log.Printf("error executing statement: %v", err)
 			return
-		}else{
-			log.Printf("inserted %v nodes", updateCount)
-		}
+		} 
 	}
     	
 }
@@ -155,13 +165,33 @@ func initPom(pom Pom) Pom {
 		pom.Packaging = "jar"
 	}
 	
-	if pom.Group == "" {
+	if pom.Group == "" || pom.Group == "${project.groupId}" {
 		pom.Group = pom.Parent.Group
 	}
 
-	if pom.Version == "" {
+	if pom.Version == "" || pom.Version == "${project.version}" {
 		pom.Version = pom.Parent.Version
 	}
-
+	
 	return pom
+}
+
+func initGav(gav Gav, pom Pom) Gav {
+	if gav.Group == "${project.groupId}" {
+		gav.Group = pom.Group
+	}
+	
+	if gav.Version == "${project.version}" {
+		gav.Version = pom.Version
+	}
+	
+	if gav.Type == "" {
+		gav.Type = "jar"
+	}
+	
+	if gav.Scope == "" {
+		gav.Scope = "compile"
+	}
+	
+	return gav
 }
